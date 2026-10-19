@@ -131,3 +131,64 @@ describe("truncateText", () => {
     });
   }
 });
+
+describe("Conversation Export Helpers", () => {
+  it("serializes empty conversation to Markdown correctly", () => {
+    const md = exportConversationToMarkdown([]);
+    expect(md).toContain("No messages in this conversation");
+  });
+
+  it("serializes text-only and structured messages with execution trace to Markdown", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "1",
+        type: "user",
+        content: "Hello ChenPilot",
+        timestamp: "2026-03-30T10:00:00.000Z",
+      },
+      {
+        id: "2",
+        type: "agent",
+        content: "Here is your result:\n```js\nconsole.log(1);\n```",
+        timestamp: "2026-03-30T10:00:05.000Z",
+        executionTrace: {
+          step: 1,
+          tool: "balance_check",
+          status: "success",
+        },
+      },
+    ];
+
+    const md = exportConversationToMarkdown(messages);
+    expect(md).toContain("### User — 2026-03-30T10:00:00.000Z");
+    expect(md).toContain("Hello ChenPilot");
+    expect(md).toContain("### Agent — 2026-03-30T10:00:05.000Z");
+    expect(md).toContain("console.log(1);");
+    expect(md).toContain("Execution Trace");
+    expect(md).toContain("balance_check");
+  });
+
+  it("round-trips JSON export matching ChatMessage[] shape without losing metadata", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "msg-json-1",
+        type: "user",
+        content: "Test JSON roundtrip",
+        timestamp: "2026-03-30T11:00:00.000Z",
+        metadata: { customField: "value123" },
+      },
+    ];
+
+    const jsonStr = exportConversationToJson(messages);
+    const parsed = JSON.parse(jsonStr) as ChatMessage[];
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].id).toBe("msg-json-1");
+    expect(parsed[0].metadata).toEqual({ customField: "value123" });
+  });
+
+  it("generates deterministic file names", () => {
+    const filename = getConversationExportFilename("conv_123", "md");
+    expect(filename).toMatch(/^chenpilot-conversation-conv_123-\d{4}-\d{2}-\d{2}\.md$/);
+  });
+});

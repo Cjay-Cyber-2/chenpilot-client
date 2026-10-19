@@ -18,7 +18,8 @@ import { ConversationManager } from "@/components/chat/ConversationManager";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
-import { X, Menu, PanelLeft, Plus } from "lucide-react";
+import { X, Menu, PanelLeft, Plus, Download } from "lucide-react";
+import { exportConversationToMarkdown, exportConversationToJson, getConversationExportFilename } from "../../utils/format";
 import { cn } from "@/utils/cn";
 import Image from "next/image";
 
@@ -91,6 +92,26 @@ export function ChatLayout({ children }: ChatLayoutProps) {
     toast.success("Starting new chat...");
     router.push("/chat");
     setSidebarOpen(false);
+  };
+
+  const handleExport = (format: "md" | "json") => {
+    if (!currentConversation || !chatHistory[currentConversation.id] || chatHistory[currentConversation.id].length === 0) {
+      toast.error("Cannot export an empty conversation");
+      return;
+    }
+    const messages = chatHistory[currentConversation.id];
+    const content = format === "md" ? exportConversationToMarkdown(messages) : exportConversationToJson(messages);
+    const mimeType = format === "md" ? "text/markdown;charset=utf-8" : "application/json;charset=utf-8";
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = getConversationExportFilename(currentConversation.id, format);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported conversation as ${format.toUpperCase()}`);
   };
 
   const handleLoadChat = (conversationId: string) => {
@@ -256,8 +277,8 @@ export function ChatLayout({ children }: ChatLayoutProps) {
             </div>
           </div>
 
-          {/* New Chat Button */}
-          <div className="px-4 py-4">
+          {/* New Chat Button & Export Menu */}
+          <div className="px-4 py-4 space-y-2">
             <Button
               onClick={handleNewChat}
               className={cn(
@@ -271,6 +292,46 @@ export function ChatLayout({ children }: ChatLayoutProps) {
                 <span>New Chat</span>
               )}
             </Button>
+
+            {currentConversation && chatHistory[currentConversation.id] && chatHistory[currentConversation.id].length > 0 ? (
+              <div className={cn("flex gap-2", sidebarCollapsed && "flex-col")}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleExport("md")}
+                  className="flex-1 bg-gray-800/40 text-gray-300 hover:text-white hover:bg-gray-800 text-xs py-2 rounded-lg border border-gray-700/50"
+                  title="Export as Markdown"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  {!sidebarCollapsed && "Markdown"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleExport("json")}
+                  className="flex-1 bg-gray-800/40 text-gray-300 hover:text-white hover:bg-gray-800 text-xs py-2 rounded-lg border border-gray-700/50"
+                  title="Export as JSON"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  {!sidebarCollapsed && "JSON"}
+                </Button>
+              </div>
+            ) : (
+              <div title="No messages to export">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  className={cn(
+                    "w-full bg-gray-800/20 text-gray-500 cursor-not-allowed text-xs py-2 rounded-lg border border-gray-800",
+                    sidebarCollapsed && "px-1"
+                  )}
+                >
+                  <Download className="h-3.5 w-3.5 mr-1 opacity-50" />
+                  {!sidebarCollapsed && "Export (Empty)"}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Chat History */}

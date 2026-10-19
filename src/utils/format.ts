@@ -185,3 +185,53 @@ export function truncateText(text: string, maxLength: number, suffix: string = '
   }
   return text.slice(0, maxLength - suffix.length) + suffix;
 }
+
+/**
+ * Serialize an array of chat messages into a Markdown transcript.
+ * Includes role headings, ISO timestamps, fenced code blocks, and execution-trace summaries.
+ */
+export function exportConversationToMarkdown(messages: ChatMessage[]): string {
+  if (!messages || messages.length === 0) {
+    return "# Conversation Transcript\n\n*No messages in this conversation.*\n";
+  }
+
+  let md = "# Conversation Transcript\n\n";
+  md += `Exported: ${new Date().toISOString()}\n\n---\n\n`;
+
+  for (const msg of messages) {
+    const roleLabel = msg.type === 'user' ? 'User' : msg.type === 'agent' ? 'Agent' : capitalize(msg.type);
+    const timestamp = msg.timestamp || new Date().toISOString();
+
+    md += `### ${roleLabel} — ${timestamp}\n\n`;
+
+    if (typeof msg.content === 'string' && msg.content.trim()) {
+      md += `${msg.content}\n\n`;
+    } else if (msg.content) {
+      md += `\`\`\`json\n${JSON.stringify(msg.content, null, 2)}\n\`\`\`\n\n`;
+    }
+
+    if (msg.executionTrace) {
+      md += `**Execution Trace**:\n`;
+      md += `\`\`\`json\n${JSON.stringify(msg.executionTrace, null, 2)}\n\`\`\`\n\n`;
+    }
+
+    md += `---\n\n`;
+  }
+
+  return md;
+}
+
+/**
+ * Serialize an array of chat messages into JSON matching the ChatMessage[] shape.
+ */
+export function exportConversationToJson(messages: ChatMessage[]): string {
+  return JSON.stringify(messages, null, 2);
+}
+
+/**
+ * Generate a deterministic filename for conversation exports.
+ */
+export function getConversationExportFilename(conversationId: string, format: 'md' | 'json'): string {
+  const dateStr = new Date().toISOString().split('T')[0];
+  return `chenpilot-conversation-${conversationId}-${dateStr}.${format}`;
+}
